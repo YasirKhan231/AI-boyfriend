@@ -46,62 +46,64 @@ export default function SignOutPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md border-border bg-secondary/20">
-        <CardHeader className="space-y-1 flex flex-col items-center text-center pb-2">
-          <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-4">
+    <div className="min-h-screen w-full flex items-center justify-center bg-black p-4">
+      <Card className="w-full max-w-md border-zinc-800 bg-zinc-900/50 backdrop-blur-xl">
+        <CardHeader className="space-y-1 flex flex-col items-center text-center pb-8">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center mb-6 ring-1 ring-zinc-700">
             <Image
-              src="/placeholder.svg?height=40&width=40"
+              src="/placeholder.svg?height=48&width=48"
               alt="Boltshift Logo"
-              width={32}
-              height={32}
-              className="text-black"
+              width={40}
+              height={40}
+              className="text-white"
             />
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight">
+          <CardTitle className="text-3xl font-bold tracking-tighter bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent">
             Sign Out
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-zinc-400">
             Are you sure you want to sign out from the AI Assistant?
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col items-center pb-2">
-          <p className="text-sm text-muted-foreground text-center max-w-sm">
+        <CardContent className="flex flex-col items-center pb-6">
+          <p className="text-sm text-zinc-500 text-center max-w-sm">
             You will need to sign in again to continue using the AI chat
             features and access your conversation history.
           </p>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-4 pt-4">
+        <CardFooter className="flex flex-col space-y-4 pt-2 pb-8">
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
                 variant="destructive"
-                className="w-full font-semibold rounded-full"
+                className="w-full font-medium rounded-full h-12 text-base transition-all duration-200 transform hover:scale-[1.02] bg-red-500 hover:bg-red-600"
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                 ) : (
-                  <LogOut className="w-4 h-4 mr-2" />
+                  <LogOut className="w-5 h-5 mr-2" />
                 )}
                 Sign Out
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent className="bg-background border-border">
+            <AlertDialogContent className="bg-zinc-900 border-zinc-800">
               <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription className="text-muted-foreground">
+                <AlertDialogTitle className="text-xl font-bold">
+                  Are you absolutely sure?
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-zinc-400">
                   This will sign you out from your current session. You will
                   need to sign in again to access your account.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel className="rounded-full">
+                <AlertDialogCancel className="rounded-full bg-zinc-800 hover:bg-zinc-700 border-zinc-700">
                   Cancel
                 </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleSignOut}
-                  className="bg-destructive hover:bg-destructive/90 text-white rounded-full"
+                  className="rounded-full bg-red-500 hover:bg-red-600 text-white"
                 >
                   Yes, sign me out
                 </AlertDialogAction>
@@ -110,7 +112,7 @@ export default function SignOutPage() {
           </AlertDialog>
           <Button
             variant="outline"
-            className="w-full rounded-full"
+            className="w-full rounded-full h-12 text-base font-medium border-zinc-800 hover:bg-zinc-800 transition-all duration-200"
             onClick={() => router.back()}
           >
             Go Back

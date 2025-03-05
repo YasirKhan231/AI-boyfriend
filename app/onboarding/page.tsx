@@ -49,7 +49,7 @@ export default function Home() {
 
   const updateUserData = (data: Partial<typeof userData>) => {
     setUserData({ ...userData, ...data });
-    console.log(userData);
+    // console.log(userData);
   };
 
   if (isLoading) {

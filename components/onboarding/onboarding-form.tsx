@@ -72,7 +72,7 @@ export default function OnboardingForm({
             value={userData.dob}
             onChange={(e) => updateUserData({ dob: e.target.value })}
             required
-            className="bg-secondary border-none"
+            className="appearance-auto text-white"
           />
         </div>
 

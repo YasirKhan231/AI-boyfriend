@@ -79,18 +79,6 @@ export default function VoiceSelection({
       audio.onended = () => setPlayingVoice(null);
     }
   };
-  const fetchVoices = async () => {
-    const response = await fetch("https://api.elevenlabs.io/v1/voices", {
-      headers: {
-        "xi-api-key": process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || "",
-      },
-    });
-
-    const data = await response.json();
-    console.log("Available Voices:", data);
-  };
-
-  fetchVoices();
 
   const fetchVoiceSample = async (voiceId: string): Promise<string | null> => {
     const voiceApiId = ELEVENLABS_VOICE_IDS[voiceId];

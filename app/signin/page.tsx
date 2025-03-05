@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { signInWithGoogle } from "../firebase/auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,55 +20,57 @@ export default function SignInPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSignIn = async () => {
-    try {
-      setIsLoading(true);
-      const user = await signInWithGoogle();
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        router.push("/"); // Redirect to home after successful sign-in
+        router.push("/"); // Redirect when Firebase detects a signed-in user
       }
-    } catch (error) {
-      console.error("Sign in error:", error);
-    } finally {
-      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
+  const handleSignIn = async () => {
+    setIsLoading(true);
+    const user = await signInWithGoogle();
+    if (user) {
+      router.push("/onboarding"); // Ensure redirect on successful sign-in
     }
+    setIsLoading(false);
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md border-border bg-secondary/20">
-        <CardHeader className="space-y-1 flex flex-col items-center text-center pb-2">
-          <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-4">
+    <div className="min-h-screen w-full flex items-center justify-center bg-black p-4">
+      <Card className="w-full max-w-md border-zinc-800 bg-zinc-900/50 backdrop-blur-xl">
+        <CardHeader className="space-y-1 flex flex-col items-center text-center pb-8">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center mb-6 ring-1 ring-zinc-700">
             <Image
-              src="/placeholder.svg?height=40&width=40"
-              alt="Boltshift Logo"
-              width={32}
-              height={32}
-              className="text-black"
+              src="/placeholder.svg?height=48&width=48"
+              alt="AI Boyfriend Logo"
+              width={40}
+              height={40}
+              className="text-white"
             />
           </div>
-          <CardTitle className="text-2xl font-bold tracking-tight">
+          <CardTitle className="text-3xl font-bold tracking-tighter bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent">
             Welcome Back
           </CardTitle>
-          <CardDescription>Sign in to access your AI friend</CardDescription>
+          <CardDescription className="text-zinc-400">
+            Continue with Google to access your AI friend
+          </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col items-center pb-2">
-          <p className="text-sm text-muted-foreground text-center max-w-sm mb-6">
-            Sign in to continue your conversation with your AI assistant and
-            access all features
-          </p>
-
+        <CardContent className="flex flex-col items-center pb-8">
           <Button
             onClick={handleSignIn}
             disabled={isLoading}
-            variant="outline"
-            className="w-full bg-white text-black hover:bg-gray-100 hover:text-black rounded-full"
+            className="w-full bg-white text-black hover:bg-zinc-100 hover:text-black rounded-full h-12 text-base font-medium transition-all duration-200 transform hover:scale-[1.02]"
           >
             {isLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
               <svg
-                className="mr-2 h-4 w-4"
+                className="mr-2 h-5 w-5"
                 aria-hidden="true"
                 focusable="false"
                 data-prefix="fab"
@@ -82,37 +85,22 @@ export default function SignInPage() {
                 ></path>
               </svg>
             )}
-            {isLoading ? "Signing in..." : "Sign in with Google"}
+            {isLoading ? "Signing in..." : "Continue with Google"}
           </Button>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-4 pt-4">
-          <div className="relative w-full">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-border"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="bg-secondary/20 px-2 text-muted-foreground">
-                Or continue with
-              </span>
-            </div>
-          </div>
-
-          <Button variant="secondary" className="w-full rounded-full">
-            Create an account
-          </Button>
-
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            By signing in, you agree to our{" "}
+        <CardFooter className="flex flex-col space-y-4 pt-2 pb-8">
+          <p className="text-center text-xs text-zinc-500">
+            By continuing, you agree to our{" "}
             <a
               href="#"
-              className="font-medium text-primary hover:text-primary/80"
+              className="font-medium text-zinc-300 hover:text-white transition-colors"
             >
               Terms of Service
             </a>{" "}
             and{" "}
             <a
               href="#"
-              className="font-medium text-primary hover:text-primary/80"
+              className="font-medium text-zinc-300 hover:text-white transition-colors"
             >
               Privacy Policy
             </a>
