@@ -2,12 +2,20 @@
 module.exports = {
   darkMode: ["class"],
   content: [
-  "./pages/**/*.{js,ts,jsx,tsx}",
-  "./components/**/*.{js,ts,jsx,tsx}",
-  "./app/**/*.{js,ts,jsx,tsx}",
-],
-
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
+    "*.{js,ts,jsx,tsx,mdx}",
+  ],
   theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
     extend: {
       colors: {
         border: "hsl(var(--border))",
@@ -43,26 +51,25 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        DEFAULT: "#ffffff",
-        lighter: "#1e1e1e",
-        button: {
-          primary: "#ffffff",
-          secondary: "rgba(255, 255, 255, 0.1)",
-          hover: "rgba(255, 255, 255, 0.2)",
+      },
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+      },
+      keyframes: {
+        "accordion-down": {
+          from: { height: 0 },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
-        success: {
-          DEFAULT: "#4ade80",
-          light: "rgba(74, 222, 128, 0.2)",
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: 0 },
         },
-        animation: {
-          "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-          "bounce-slow": "bounce 2s infinite",
-        },
-        borderRadius: {
-          lg: "var(--radius)",
-          md: "calc(var(--radius) - 2px)",
-          sm: "calc(var(--radius) - 4px)",
-        },
+      },
+      animation: {
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out",
       },
     },
   },

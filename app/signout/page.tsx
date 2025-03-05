@@ -23,8 +23,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { LogOut, Bot, Loader2 } from "lucide-react";
+import { LogOut, Loader2 } from "lucide-react";
 import { toast } from "react-toastify";
+import Image from "next/image";
 
 export default function SignOutPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -45,31 +46,37 @@ export default function SignOutPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
-      <Card className="w-full max-w-md backdrop-blur-sm bg-white/80 dark:bg-gray-900/80 shadow-xl border-0">
+    <div className="min-h-screen w-full flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md border-border bg-secondary/20">
         <CardHeader className="space-y-1 flex flex-col items-center text-center pb-2">
-          <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4">
-            <Bot className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+          <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center mb-4">
+            <Image
+              src="/placeholder.svg?height=40&width=40"
+              alt="Boltshift Logo"
+              width={32}
+              height={32}
+              className="text-black"
+            />
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">
             Sign Out
           </CardTitle>
-          <CardDescription className="text-gray-500 dark:text-gray-400">
+          <CardDescription>
             Are you sure you want to sign out from the AI Assistant?
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center pb-2">
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm">
+          <p className="text-sm text-muted-foreground text-center max-w-sm">
             You will need to sign in again to continue using the AI chat
             features and access your conversation history.
           </p>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-2 pt-4">
+        <CardFooter className="flex flex-col space-y-4 pt-4">
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
                 variant="destructive"
-                className="w-full font-semibold"
+                className="w-full font-semibold rounded-full"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -80,19 +87,21 @@ export default function SignOutPage() {
                 Sign Out
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent className="bg-white dark:bg-gray-900">
+            <AlertDialogContent className="bg-background border-border">
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
+                <AlertDialogDescription className="text-muted-foreground">
                   This will sign you out from your current session. You will
                   need to sign in again to access your account.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel className="rounded-full">
+                  Cancel
+                </AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleSignOut}
-                  className="bg-red-500 hover:bg-red-600 text-white"
+                  className="bg-destructive hover:bg-destructive/90 text-white rounded-full"
                 >
                   Yes, sign me out
                 </AlertDialogAction>
@@ -101,7 +110,7 @@ export default function SignOutPage() {
           </AlertDialog>
           <Button
             variant="outline"
-            className="w-full"
+            className="w-full rounded-full"
             onClick={() => router.back()}
           >
             Go Back
