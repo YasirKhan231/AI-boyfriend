@@ -33,6 +33,8 @@ export default function FantasyQuestions({
   onBack,
   currentStep,
 }: FantasyQuestionsProps) {
+  // Update the initial audioVolume state to have a minimum height
+  const [audioVolume, setAudioVolume] = useState<number[]>(Array(32).fill(20));
   const [questionIndex, setQuestionIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -45,6 +47,11 @@ export default function FantasyQuestions({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioUrlRef = useRef<string | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const dataArrayRef = useRef<Uint8Array | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
   // Start recording function
   const startRecording = async () => {
@@ -60,6 +67,24 @@ export default function FantasyQuestions({
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+
+      // Set up audio analysis
+      const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
+      const analyser = audioContext.createAnalyser();
+      analyserRef.current = analyser;
+      analyser.fftSize = 256;
+
+      const source = audioContext.createMediaStreamSource(stream);
+      sourceRef.current = source;
+      source.connect(analyser);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      dataArrayRef.current = dataArray;
+
+      // Start audio visualization
+      visualizeAudio();
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -81,6 +106,42 @@ export default function FantasyQuestions({
         "Could not access microphone. Please check permissions."
       );
     }
+  };
+
+  // Audio visualization function with new waveform style
+  const visualizeAudio = () => {
+    if (!analyserRef.current || !dataArrayRef.current) return;
+
+    const updateVisualization = () => {
+      if (!analyserRef.current || !dataArrayRef.current || isPaused) return;
+
+      analyserRef.current.getByteFrequencyData(dataArrayRef.current);
+
+      // Calculate volume levels with improved sensitivity for waveform
+      const bufferLength = analyserRef.current.frequencyBinCount;
+      const newVolumes = Array(32).fill(0); // Increased number of points for smoother wave
+
+      // Process frequency data for visualization
+      for (let i = 0; i < bufferLength; i++) {
+        const index = Math.floor((i / bufferLength) * 32);
+        newVolumes[index] = Math.max(
+          newVolumes[index],
+          (dataArrayRef.current[i] / 255) * 100
+        );
+      }
+
+      // Apply smoothing
+      setAudioVolume((prevVolumes) =>
+        newVolumes.map((vol, i) => {
+          const smoothFactor = 0.3;
+          return prevVolumes[i] * (1 - smoothFactor) + vol * smoothFactor;
+        })
+      );
+
+      animationFrameRef.current = requestAnimationFrame(updateVisualization);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(updateVisualization);
   };
 
   // Pause recording function
@@ -110,6 +171,11 @@ export default function FantasyQuestions({
       setRecordingTime((prev) => prev + 1);
     }, 1000);
     setTimer(interval);
+
+    // Resume visualization
+    if (!animationFrameRef.current) {
+      visualizeAudio();
+    }
   };
 
   // Stop recording function
@@ -143,12 +209,27 @@ export default function FantasyQuestions({
         .forEach((track) => track.stop());
     }
 
+    // Stop audio context and analysis
+    if (sourceRef.current) {
+      sourceRef.current.disconnect();
+    }
+
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+      audioContextRef.current.close();
+    }
+
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
     if (timer) clearInterval(timer);
     setIsRecording(false);
     setIsPaused(false);
+    setAudioVolume(Array(32).fill(0));
   };
 
-  // Retry recording function
+  // Also update the retryRecording function to reset audioVolume to minimum height
   const retryRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stream
@@ -156,10 +237,25 @@ export default function FantasyQuestions({
         .forEach((track) => track.stop());
     }
 
+    // Stop audio context and analysis
+    if (sourceRef.current) {
+      sourceRef.current.disconnect();
+    }
+
+    if (audioContextRef.current && audioContextRef.current.state !== "closed") {
+      audioContextRef.current.close();
+    }
+
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
     if (timer) clearInterval(timer);
     setIsRecording(false);
     setIsPaused(false);
     setRecordingTime(0);
+    setAudioVolume(Array(32).fill(20)); // Set to minimum height instead of zero
     audioChunksRef.current = [];
 
     // Revoke previous URL if it exists
@@ -185,20 +281,19 @@ export default function FantasyQuestions({
     }
 
     try {
-      console.log("Starting Elevenlabs conversion...");
+      console.log("Starting ElevenLabs conversion...");
       setIsConverting(true);
       setConversionError(null);
 
-      // Create audio blob from chunks
+      // Convert audio to WAV format
       const audioBlob = new Blob(audioChunksRef.current, {
         type: "audio/webm",
       });
 
-      // Create form data for API request
       const formData = new FormData();
-      formData.append("audio", audioBlob);
+      formData.append("audio", audioBlob, "recording.webm");
 
-      // Call Elevenlabs API directly
+      // Call ElevenLabs API
       const response = await fetch(
         "https://api.elevenlabs.io/v1/speech-to-text",
         {
@@ -212,25 +307,24 @@ export default function FantasyQuestions({
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Elevenlabs API error:", errorData);
         throw new Error(
           errorData.detail?.message || "Failed to convert speech to text"
         );
       }
 
       const data = await response.json();
-      console.log("Elevenlabs conversion successful:", data);
       setIsConverting(false);
 
-      return data.text;
-    } catch (error) {
-      console.error("Error converting audio to text with Elevenlabs:", error);
+      return data.text; // ✅ Successfully converted text
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("Error converting audio to text:", error.message);
+        setConversionError(error.message);
+      } else {
+        console.error("Unknown error occurred:", error);
+        setConversionError("An unknown error occurred");
+      }
       setIsConverting(false);
-      setConversionError(
-        error instanceof Error
-          ? error.message
-          : "Failed to convert speech to text"
-      );
       return null;
     }
   };
@@ -243,12 +337,12 @@ export default function FantasyQuestions({
       setIsConverting(true);
       setConversionError(null);
 
-      // Create audio blob from chunks
+      // Convert audio to WAV format
       const audioBlob = new Blob(audioChunksRef.current, {
         type: "audio/webm",
       });
 
-      // Step 1: Get upload URL
+      // Step 1: Upload the file to AssemblyAI
       const uploadResponse = await fetch(
         "https://api.assemblyai.com/v2/upload",
         {
@@ -266,7 +360,7 @@ export default function FantasyQuestions({
 
       const { upload_url } = await uploadResponse.json();
 
-      // Step 2: Upload the audio file
+      // Step 2: Upload the actual file
       const uploadAudioResponse = await fetch(upload_url, {
         method: "PUT",
         headers: {
@@ -279,7 +373,7 @@ export default function FantasyQuestions({
         throw new Error("Failed to upload audio file");
       }
 
-      // Step 3: Submit the transcription request
+      // Step 3: Submit for transcription
       const transcriptResponse = await fetch(
         "https://api.assemblyai.com/v2/transcript",
         {
@@ -288,9 +382,7 @@ export default function FantasyQuestions({
             Authorization: process.env.NEXT_PUBLIC_ASSEMBLYAI_API_KEY || "",
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            audio_url: upload_url,
-          }),
+          body: JSON.stringify({ audio_url: upload_url }),
         }
       );
 
@@ -323,12 +415,11 @@ export default function FantasyQuestions({
 
         if (transcriptResult.status === "completed") {
           break;
-        } else if (transcriptResult.status === "error") {
+        } else if (transcriptResult.status === "failed") {
           throw new Error("Transcription failed: " + transcriptResult.error);
         }
 
-        // Wait 1 second before polling again
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 sec before retry
         attempts++;
       }
 
@@ -338,14 +429,15 @@ export default function FantasyQuestions({
 
       setIsConverting(false);
       return transcriptResult.text;
-    } catch (error) {
-      console.error("Error converting audio with AssemblyAI:", error);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("Error converting audio to text:", error.message);
+        setConversionError(error.message);
+      } else {
+        console.error("Unknown error occurred:", error);
+        setConversionError("An unknown error occurred");
+      }
       setIsConverting(false);
-      setConversionError(
-        error instanceof Error
-          ? error.message
-          : "Failed to convert speech to text"
-      );
       return null;
     }
   };
@@ -359,7 +451,7 @@ export default function FantasyQuestions({
       console.log("Audio response recorded. Starting conversion...");
 
       // Try Elevenlabs first, then fall back to AssemblyAI if needed
-      let text = await convertAudioToText();
+      const text = await convertAudioToText();
 
       // If Elevenlabs fails, try AssemblyAI
 
@@ -422,6 +514,18 @@ export default function FantasyQuestions({
       if (audioUrlRef.current) {
         URL.revokeObjectURL(audioUrlRef.current);
       }
+      if (sourceRef.current) {
+        sourceRef.current.disconnect();
+      }
+      if (
+        audioContextRef.current &&
+        audioContextRef.current.state !== "closed"
+      ) {
+        audioContextRef.current.close();
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     };
   }, [timer]);
 
@@ -448,59 +552,112 @@ export default function FantasyQuestions({
 
       <div className="flex flex-col items-center justify-center space-y-6">
         <div className="flex items-center justify-center space-x-4">
-          {/* Main recording button */}
-          {!isRecording ? (
-            <button
-              onClick={startRecording}
-              className="w-20 h-20 rounded-full flex items-center justify-center transition-all bg-secondary hover:bg-secondary/80"
-              aria-label="Start recording"
-              disabled={isConverting}
-            >
-              <Mic className="h-8 w-8" />
-            </button>
-          ) : (
-            <button
-              onClick={stopRecording}
-              className="w-20 h-20 rounded-full flex items-center justify-center transition-all bg-red-500"
-              aria-label="Stop recording"
-            >
-              <div className="flex space-x-1">
-                {[1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className="w-1 h-8 bg-white wave"
-                    style={{ animationDelay: `${i * 0.1}s` }}
-                  ></div>
-                ))}
-              </div>
-            </button>
-          )}
+          {/* Main recording visualization */}
+          <div className="relative w-full max-w-md h-32">
+            {isRecording ? (
+              <button
+                onClick={stopRecording}
+                className="w-full h-full relative overflow-hidden bg-black rounded-lg"
+                aria-label="Stop recording"
+              >
+                {/* Waveform container */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-full h-full flex items-center">
+                    {/* Mirror the waves for symmetrical effect */}
+                    <div className="w-1/2 h-full flex items-center justify-end">
+                      {audioVolume
+                        .slice(0, 16)
+                        .reverse()
+                        .map((volume, i) => (
+                          <div
+                            key={`left-${i}`}
+                            className="w-[3px] mx-[1px] transform origin-center"
+                            style={{
+                              height: `${Math.max(4, volume)}%`,
+                              background: `linear-gradient(180deg, 
+                              rgba(255,0,0,0.2) 0%, 
+                              rgba(255,69,0,0.8) 50%, 
+                              rgba(255,140,0,1) 100%)`,
+                              boxShadow:
+                                volume > 50
+                                  ? "0 0 10px rgba(255,140,0,0.5), 0 0 20px rgba(255,69,0,0.3)"
+                                  : "none",
+                              transition: "height 0.1s ease-out",
+                            }}
+                          />
+                        ))}
+                    </div>
+                    <div className="w-1/2 h-full flex items-center justify-start">
+                      {audioVolume.slice(16, 32).map((volume, i) => (
+                        <div
+                          key={`right-${i}`}
+                          className="w-[3px] mx-[1px] transform origin-center"
+                          style={{
+                            height: `${Math.max(4, volume)}%`,
+                            background: `linear-gradient(180deg, 
+                              rgba(255,0,0,0.2) 0%, 
+                              rgba(255,69,0,0.8) 50%, 
+                              rgba(255,140,0,1) 100%)`,
+                            boxShadow:
+                              volume > 50
+                                ? "0 0 10px rgba(255,140,0,0.5), 0 0 20px rgba(255,69,0,0.3)"
+                                : "none",
+                            transition: "height 0.1s ease-out",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
 
-          {/* Pause/Resume button - always shown when recording */}
-          {isRecording && (
-            <button
-              onClick={isPaused ? resumeRecording : pauseRecording}
-              className="w-12 h-12 rounded-full flex items-center justify-center transition-all bg-secondary hover:bg-secondary/80"
-              aria-label={isPaused ? "Resume recording" : "Pause recording"}
-            >
-              {isPaused ? (
-                <Play className="h-5 w-5" />
-              ) : (
-                <Pause className="h-5 w-5" />
-              )}
-            </button>
-          )}
+                {/* Center glow effect */}
+                <div
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 rounded-full"
+                  style={{
+                    background:
+                      "radial-gradient(circle, rgba(255,140,0,0.3) 0%, rgba(255,69,0,0.1) 50%, transparent 100%)",
+                    filter: "blur(8px)",
+                  }}
+                />
+              </button>
+            ) : (
+              <button
+                onClick={startRecording}
+                className="w-full h-full flex items-center justify-center bg-black/90 hover:bg-black/80 rounded-lg transition-colors"
+                aria-label="Start recording"
+                disabled={isConverting}
+              >
+                <Mic className="h-8 w-8 text-orange-500" />
+              </button>
+            )}
+          </div>
 
-          {/* Retry button - always shown when recording or when an answer exists */}
-          {(isRecording || userData.answers[questionIndex]) && (
-            <button
-              onClick={retryRecording}
-              className="w-12 h-12 rounded-full flex items-center justify-center transition-all bg-secondary hover:bg-secondary/80"
-              aria-label="Retry recording"
-            >
-              <RefreshCw className="h-5 w-5" />
-            </button>
-          )}
+          {/* Control buttons */}
+          <div className="flex flex-col space-y-2">
+            {isRecording && (
+              <button
+                onClick={isPaused ? resumeRecording : pauseRecording}
+                className="w-12 h-12 rounded-lg flex items-center justify-center transition-all bg-black/90 hover:bg-black/80 text-orange-500"
+                aria-label={isPaused ? "Resume recording" : "Pause recording"}
+              >
+                {isPaused ? (
+                  <Play className="h-5 w-5" />
+                ) : (
+                  <Pause className="h-5 w-5" />
+                )}
+              </button>
+            )}
+
+            {(isRecording || userData.answers[questionIndex]) && (
+              <button
+                onClick={retryRecording}
+                className="w-12 h-12 rounded-lg flex items-center justify-center transition-all bg-black/90 hover:bg-black/80 text-orange-500"
+                aria-label="Retry recording"
+              >
+                <RefreshCw className="h-5 w-5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {isRecording && (
@@ -571,6 +728,60 @@ export default function FantasyQuestions({
             : "Complete"}
         </Button>
       </div>
+
+      {/* CSS for flame animation */}
+      <style jsx global>{`
+        @keyframes flicker-0 {
+          0% {
+            transform: scaleX(1) scaleY(1);
+            opacity: 0.9;
+          }
+          100% {
+            transform: scaleX(0.95) scaleY(0.95);
+            opacity: 1;
+          }
+        }
+        @keyframes flicker-1 {
+          0% {
+            transform: scaleX(0.97) scaleY(1.03);
+            opacity: 0.92;
+          }
+          100% {
+            transform: scaleX(0.94) scaleY(0.96);
+            opacity: 1;
+          }
+        }
+        @keyframes flicker-2 {
+          0% {
+            transform: scaleX(1.02) scaleY(0.98);
+            opacity: 0.94;
+          }
+          100% {
+            transform: scaleX(0.96) scaleY(0.98);
+            opacity: 1;
+          }
+        }
+        @keyframes flicker-3 {
+          0% {
+            transform: scaleX(0.98) scaleY(1.02);
+            opacity: 0.91;
+          }
+          100% {
+            transform: scaleX(0.97) scaleY(0.97);
+            opacity: 1;
+          }
+        }
+        @keyframes flicker-4 {
+          0% {
+            transform: scaleX(1.01) scaleY(0.99);
+            opacity: 0.93;
+          }
+          100% {
+            transform: scaleX(0.98) scaleY(0.96);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 }

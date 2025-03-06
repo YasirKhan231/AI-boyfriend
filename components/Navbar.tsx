@@ -127,7 +127,6 @@ export default function Navbar({ user }: NavbarProps) {
 
                 <Button
                   variant="ghost"
-                  onClick={handleSignOut}
                   disabled={isLoading}
                   className="text-zinc-400 hover:text-white hover:bg-zinc-800"
                 >

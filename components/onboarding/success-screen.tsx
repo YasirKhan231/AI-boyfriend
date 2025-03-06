@@ -1,6 +1,7 @@
+"use client";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, Phone } from "lucide-react";
-
+import { useRouter } from "next/navigation";
 interface SuccessScreenProps {
   userData: {
     name: string;
@@ -11,6 +12,7 @@ interface SuccessScreenProps {
 }
 
 export default function SuccessScreen({ userData }: SuccessScreenProps) {
+  const router = useRouter();
   return (
     <div className="space-y-8 text-center">
       <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto">
@@ -38,17 +40,19 @@ export default function SuccessScreen({ userData }: SuccessScreenProps) {
 
       <div className="grid grid-cols-2 gap-4 mt-8">
         <Button
+          onClick={() => router.push("/")}
           variant="outline"
           size="lg"
-          className="flex items-center justify-center space-x-2 h-16 rounded-lg"
+          className="flex items-center justify-center space-x-2 h-16 rounded-lg   hover:cursor-pointer"
         >
           <MessageSquare className="h-5 w-5" />
           <span>Start Chat</span>
         </Button>
 
         <Button
+          onClick={() => router.push("/")}
           size="lg"
-          className="flex items-center justify-center space-x-2 h-16 rounded-lg"
+          className="flex items-center justify-center space-x-2 h-16 rounded-lg hover:cursor-pointer"
         >
           <Phone className="h-5 w-5" />
           <span>Call AI</span>

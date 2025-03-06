@@ -32,7 +32,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {/* Pass user as a prop */}
-        <Navbar user={user} />
+        {/* <Navbar user={user} /> */}
         <main>{children}</main>
       </body>
     </html>
