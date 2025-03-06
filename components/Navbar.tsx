@@ -19,7 +19,6 @@ export default function Navbar({ user }: NavbarProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     // Check localStorage for dark mode preference

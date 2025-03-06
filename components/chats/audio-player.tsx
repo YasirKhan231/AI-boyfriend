@@ -14,7 +14,6 @@ interface AudioPlayerProps {
 }
 
 const AudioPlayer: React.FC<AudioPlayerProps> = ({
-  audioUrl,
   isPlaying,
   isMuted,
   toggleMute,
