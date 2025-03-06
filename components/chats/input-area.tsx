@@ -5,7 +5,7 @@ import type React from "react";
 import { useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, Send, Volume2, VolumeX } from "lucide-react";
+import { Plus, Send, Volume2, VolumeX } from "lucide-react";
 
 interface InputAreaProps {
   message: string;
@@ -26,7 +26,6 @@ const InputArea: React.FC<InputAreaProps> = ({
   toggleMute,
   audioPlaying,
 }) => {
-  // Optimized input handlers
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setMessage(e.target.value);
@@ -45,28 +44,29 @@ const InputArea: React.FC<InputAreaProps> = ({
   );
 
   return (
-    <div className="p-3 md:p-4 bg-black border-t border-gray-800">
+    <div className="p-2 md:p-4 bg-black border-t border-gray-800">
       <div className="max-w-4xl mx-auto flex items-center gap-2">
         <div className="relative flex-1">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
+            <Plus className="h-5 w-5" />
+          </div>
           <Input
-            placeholder="Message..."
+            placeholder="iMessage"
             value={message}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            className="pr-14 py-5 md:py-6 rounded-full border-gray-700 bg-gray-900 shadow-sm focus:border-gray-600 focus:ring-gray-600 text-white text-sm md:text-base"
+            className="w-full bg-gray-900 border-gray-800 rounded-full py-6 pl-12 pr-12 text-white placeholder:text-gray-500"
           />
-          <Button
-            onClick={() => handleSendMessage()}
-            disabled={message.trim() === "" || loading}
-            size="icon"
-            className="h-8 w-8 md:h-10 md:w-10 absolute right-1.5 top-1/2 transform -translate-y-1/2 rounded-full bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            {loading ? (
-              <Loader2 className="h-3 w-3 md:h-4 md:w-4 animate-spin" />
-            ) : (
-              <Send className="h-3 w-3 md:h-4 md:w-4" />
-            )}
-          </Button>
+          {message.trim() !== "" && (
+            <Button
+              onClick={() => handleSendMessage()}
+              disabled={loading}
+              size="icon"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-blue-500 hover:bg-blue-600"
+            >
+              <Send className="h-4 w-4 text-white" />
+            </Button>
+          )}
         </div>
 
         {audioPlaying && (
@@ -74,7 +74,7 @@ const InputArea: React.FC<InputAreaProps> = ({
             onClick={toggleMute}
             variant="ghost"
             size="icon"
-            className="h-10 w-10 rounded-full text-gray-300 hover:bg-gray-800"
+            className="h-10 w-10 rounded-full text-gray-400 hover:bg-gray-800"
           >
             {audioMuted ? (
               <VolumeX className="h-5 w-5" />
