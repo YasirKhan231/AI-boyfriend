@@ -29,7 +29,7 @@ export default function PaywallScreen({ onNext, onBack }: PaywallScreenProps) {
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-        <div className="border border-border rounded-lg p-6 relative">
+        <div className="border border-border rounded-lg p-6 relative  hover:cursor-pointer">
           <div className="absolute top-4 right-4">
             <Zap className="h-5 w-5" />
           </div>
@@ -54,7 +54,10 @@ export default function PaywallScreen({ onNext, onBack }: PaywallScreenProps) {
           </ul>
         </div>
 
-        <div className="border border-border rounded-lg p-6 relative bg-secondary/20">
+        <div
+          className="border border-border rounded-lg p-6 relative bg-secondary/20 hover:cursor-pointer;
+"
+        >
           <div className="absolute top-4 right-4">
             <Zap className="h-5 w-5" />
           </div>

@@ -53,8 +53,7 @@ const ChatApp: React.FC = () => {
   const recognitionRef = useRef<any>(null);
 
   // ELEVENLABS API key
-  const ELEVENLABS_API_KEY =
-    "sk_ac995dd9e6d51b2e150ab2297ecca99d25573b8d833a3bd6";
+  const ELEVENLABS_API_KEY = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || "";
 
   // OpenAI client state
   const [openai, setOpenai] = useState<OpenAI | null>(null);
@@ -73,8 +72,7 @@ const ChatApp: React.FC = () => {
 
   // Initialize OpenAI client
   useEffect(() => {
-    const apiKey =
-      "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";
+    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || "";
     if (!apiKey) {
       console.error("OpenAI API key not found in environment variables.");
       toast.error("OpenAI API key not configured.");

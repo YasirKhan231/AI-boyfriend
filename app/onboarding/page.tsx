@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../firebase/firebaseConfig";
+import { auth, db } from "../firebase/firebaseConfig"; // Ensure you import Firestore
+import { doc, setDoc } from "firebase/firestore"; //
 import WelcomeScreen from "@/components/onboarding/welcome-screen";
 import OnboardingForm from "@/components/onboarding/onboarding-form";
 import VoiceSelection from "@/components/onboarding/voice-selection";
@@ -34,6 +35,46 @@ export default function Home() {
 
     return () => unsubscribe();
   }, [router]);
+  const handleComplete = async () => {
+    // Log the data in the browser console
+    console.log("Onboarding Data:", userData);
+
+    // Send data to the local API endpoint
+    try {
+      const response = await fetch(
+        "http://localhost:8000/onboardingdata/submit",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(userData),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to submit onboarding data");
+      }
+
+      const result = await response.json();
+      console.log("API Response:", result);
+
+      // Store data in Firestore
+      const user = auth.currentUser;
+      if (user) {
+        await setDoc(doc(db, "users", user.uid), {
+          onboardingData: userData,
+          createdAt: new Date(),
+        });
+        console.log("Data stored in Firestore");
+      }
+    } catch (error) {
+      console.error("Error submitting onboarding data:", error);
+    }
+
+    // Move to the next step (e.g., SuccessScreen)
+    handleNext();
+  };
 
   const handleNext = () => {
     setIsLoading(true);
