@@ -55,7 +55,7 @@ export default function PaywallScreen({ onNext, onBack }: PaywallScreenProps) {
         </div>
 
         <div
-          className="border border-border rounded-lg p-6 relative bg-secondary/20 hover:cursor-pointer;
+          className="border border-border rounded-lg p-6 relative bg-secondary/20 hover:cursor-pointer
 "
         >
           <div className="absolute top-4 right-4">
@@ -95,7 +95,10 @@ export default function PaywallScreen({ onNext, onBack }: PaywallScreenProps) {
         Change plans or cancel anytime
       </p>
 
-      <Button onClick={onNext} className="w-full rounded-full">
+      <Button
+        onClick={onNext}
+        className="w-full rounded-full hover:cursor-pointer"
+      >
         Continue
       </Button>
 
@@ -104,7 +107,7 @@ export default function PaywallScreen({ onNext, onBack }: PaywallScreenProps) {
           variant="ghost"
           size="sm"
           onClick={onBack}
-          className="text-muted-foreground"
+          className="text-muted-foreground hover:cursor-pointer"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back

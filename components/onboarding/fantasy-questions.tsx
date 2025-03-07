@@ -56,35 +56,12 @@ export default function FantasyQuestions({
   // Start recording function
   const startRecording = async () => {
     try {
-      // Reset any previous conversion errors
-      setConversionError(null);
-
-      // Reset recording time to 0
-      setRecordingTime(0);
-
-      // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: "audio/webm", // Change to "audio/wav" if needed
+      });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
-
-      // Set up audio analysis
-      const audioContext = new AudioContext();
-      audioContextRef.current = audioContext;
-      const analyser = audioContext.createAnalyser();
-      analyserRef.current = analyser;
-      analyser.fftSize = 256;
-
-      const source = audioContext.createMediaStreamSource(stream);
-      sourceRef.current = source;
-      source.connect(analyser);
-
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      dataArrayRef.current = dataArray;
-
-      // Start audio visualization
-      visualizeAudio();
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -109,6 +86,7 @@ export default function FantasyQuestions({
   };
 
   // Audio visualization function with new waveform style
+  // Inside the visualizeAudio function
   const visualizeAudio = () => {
     if (!analyserRef.current || !dataArrayRef.current) return;
 
@@ -285,13 +263,21 @@ export default function FantasyQuestions({
       setIsConverting(true);
       setConversionError(null);
 
-      // Convert audio to WAV format
+      // Convert audio to base64
       const audioBlob = new Blob(audioChunksRef.current, {
         type: "audio/webm",
       });
+      const reader = new FileReader();
+      reader.readAsDataURL(audioBlob);
 
-      const formData = new FormData();
-      formData.append("audio", audioBlob, "recording.webm");
+      const base64Audio = await new Promise((resolve) => {
+        reader.onloadend = () => {
+          resolve(reader.result?.toString().split(",")[1]); // Extract base64 data
+        };
+      });
+
+      // Log the base64 audio
+      console.log("Base64 Audio:", base64Audio);
 
       // Call ElevenLabs API
       const response = await fetch(
@@ -300,21 +286,29 @@ export default function FantasyQuestions({
           method: "POST",
           headers: {
             "xi-api-key": process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || "",
+            "Content-Type": "application/json",
           },
-          body: formData,
+          body: JSON.stringify({
+            audio: base64Audio,
+          }),
         }
       );
 
+      // Log the API response
+      console.log("API Response:", response);
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("API Error:", errorData);
         throw new Error(
           errorData.detail?.message || "Failed to convert speech to text"
         );
       }
 
       const data = await response.json();
-      setIsConverting(false);
+      console.log("API Data:", data);
 
+      setIsConverting(false);
       return data.text; // ✅ Successfully converted text
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -464,9 +458,9 @@ export default function FantasyQuestions({
                             style={{
                               height: `${Math.max(4, volume)}%`,
                               background: `linear-gradient(180deg, 
-                              rgba(255,0,0,0.2) 0%, 
-                              rgba(255,69,0,0.8) 50%, 
-                              rgba(255,140,0,1) 100%)`,
+              rgba(255,0,0,0.2) 0%, 
+              rgba(255,69,0,0.8) 50%, 
+              rgba(255,140,0,1) 100%)`,
                               boxShadow:
                                 volume > 50
                                   ? "0 0 10px rgba(255,140,0,0.5), 0 0 20px rgba(255,69,0,0.3)"
@@ -484,9 +478,9 @@ export default function FantasyQuestions({
                           style={{
                             height: `${Math.max(4, volume)}%`,
                             background: `linear-gradient(180deg, 
-                              rgba(255,0,0,0.2) 0%, 
-                              rgba(255,69,0,0.8) 50%, 
-                              rgba(255,140,0,1) 100%)`,
+            rgba(255,0,0,0.2) 0%, 
+            rgba(255,69,0,0.8) 50%, 
+            rgba(255,140,0,1) 100%)`,
                             boxShadow:
                               volume > 50
                                 ? "0 0 10px rgba(255,140,0,0.5), 0 0 20px rgba(255,69,0,0.3)"

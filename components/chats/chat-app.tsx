@@ -44,6 +44,8 @@ const ChatApp: React.FC = () => {
   const [audioMuted, setAudioMuted] = useState<boolean>(false);
   const [currentAudioUrl, setCurrentAudioUrl] = useState<string | null>(null);
   const [showAudioPlayer, setShowAudioPlayer] = useState<boolean>(false);
+  const [isAuthChecked, setIsAuthChecked] = useState<boolean>(false);
+  const [callStartTime, setCallStartTime] = useState<Date | null>(null);
   const [selectedVoice, setSelectedVoice] = useState({
     id: "21m00Tcm4TlvDq8ikWAM", // Default voice ID
     name: "Josh", // Default voice name
@@ -60,6 +62,19 @@ const ChatApp: React.FC = () => {
 
   // OpenAI client state
   const [openai, setOpenai] = useState<OpenAI | null>(null);
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        // Redirect to the sign-in page if the user is not authenticated
+        router.push("/signin");
+      } else {
+        // User is authenticated, allow rendering
+        setIsAuthChecked(true);
+      }
+    });
+
+    return () => unsubscribe(); // Cleanup the listener on unmount
+  }, [router]);
   const handleCancelAudio = () => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -68,22 +83,10 @@ const ChatApp: React.FC = () => {
     }
     setShowAudioPlayer(false);
   };
-  // Check authentication
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        console.log("user is not authenticated");
-        router.push("/signin"); // Redirect to sign-in page if user is not authenticated
-      }
-    });
 
-    return () => unsubscribe(); // Cleanup the listener on unmount
-  }, [router]);
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        console.log("User is authenticated:", user.uid);
-
         // Fetch messages only after the user is authenticated
         const messagesRef = collection(db, "users", user.uid, "chats");
         const q = query(messagesRef, orderBy("index", "asc")); // Order messages by index
@@ -454,6 +457,7 @@ const ChatApp: React.FC = () => {
   };
 
   const startCall = () => {
+    setCallStartTime(new Date());
     setShowCallModal(true);
     setCallHistory([]);
 
@@ -641,30 +645,65 @@ const ChatApp: React.FC = () => {
   };
 
   // Simplified endCall function
-  const endCall = () => {
+  const endCall = async () => {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
-
+  
     setIsCallActive(false);
     setIsListening(false);
     setShowCallModal(false);
     setTranscript("");
-
-    if (callHistory.length > 0) {
+  
+    const user = auth.currentUser;
+    if (!user) {
+      toast.error("User not authenticated");
+      return;
+    }
+  
+    // Pre-check for callStartTime
+    if (!callStartTime) {
+      console.log("Start time is not set. Cannot calculate duration.");
+      return;
+    }
+  
+    // Prepare call log data
+    const callLogData = {
+      callHistory: callHistory, // Array of messages
+      startTime: serverTimestamp(), // Timestamp when the call started
+      endTime: serverTimestamp(), // Timestamp when the call ended
+      duration: new Date().getTime() - callStartTime.getTime(), // Duration in milliseconds
+    };
+  
+    try {
+      // Save call log to Firestore
+      const callLogsRef = collection(db, "users", user.uid, "callLogs");
+      console.log("Firestore Path:", `users/${user.uid}/callLogs`);
+      console.log("Call Log Data:", callLogData);
+  
+      await addDoc(callLogsRef, callLogData);
+  
+      // Optionally, save a summary to the chat history
       const callSummary: Message = {
         text: `📞 Call Summary:\n${callHistory.join("\n")}`,
         createdAt: new Date(),
-        sender: "boyfriend", // Explicitly set to "boyfriend"
+        sender: "boyfriend",
         index: messages.length + 1,
       };
-
+  
       setMessages((prev) => [...prev, callSummary]);
-
-      addDoc(collection(db, "messages"), {
+  
+      // Save the summary to Firestore
+      const messagesRef = collection(db, "users", user.uid, "chats");
+      await addDoc(messagesRef, {
         ...callSummary,
         createdAt: serverTimestamp(),
       });
+  
+      toast.success("Call log saved successfully.");
+    } catch (error) {
+      console.error("Error saving call log:", error);
+      toast.error("Failed to save call log.");
     }
   };
 
