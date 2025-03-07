@@ -8,12 +8,12 @@ export const signInWithGoogle = async () => {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
-    // Check if user already exists
-    const userRef = doc(db, "users", user.uid);
+    // Check if user already exists in Firestore
+    const userRef = doc(db, "users", user.uid); // Reference to the user document
     const userSnap = await getDoc(userRef);
 
     if (!userSnap.exists()) {
-      // Store user in Firestore
+      // If the user doesn't exist, create a new document in the `users` collection
       await setDoc(userRef, {
         uid: user.uid,
         name: user.displayName,
@@ -21,6 +21,8 @@ export const signInWithGoogle = async () => {
         photoURL: user.photoURL,
         createdAt: new Date().toISOString(),
       });
+
+      console.log("New user created in Firestore:", user.uid);
     }
 
     return user;

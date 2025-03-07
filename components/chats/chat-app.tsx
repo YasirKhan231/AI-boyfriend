@@ -5,6 +5,7 @@ import type React from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/app/firebase/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
+
 import {
   collection,
   addDoc,
@@ -14,6 +15,7 @@ import {
   onSnapshot,
   type DocumentData,
   type QuerySnapshot,
+  getDocs,
 } from "firebase/firestore";
 import { toast } from "react-toastify";
 import { OpenAI } from "openai";
@@ -41,6 +43,7 @@ const ChatApp: React.FC = () => {
   const [audioPlaying, setAudioPlaying] = useState<boolean>(false);
   const [audioMuted, setAudioMuted] = useState<boolean>(false);
   const [currentAudioUrl, setCurrentAudioUrl] = useState<string | null>(null);
+  const [showAudioPlayer, setShowAudioPlayer] = useState<boolean>(false);
   const [selectedVoice, setSelectedVoice] = useState({
     id: "21m00Tcm4TlvDq8ikWAM", // Default voice ID
     name: "Josh", // Default voice name
@@ -57,7 +60,14 @@ const ChatApp: React.FC = () => {
 
   // OpenAI client state
   const [openai, setOpenai] = useState<OpenAI | null>(null);
-
+  const handleCancelAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setAudioPlaying(false);
+    }
+    setShowAudioPlayer(false);
+  };
   // Check authentication
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -69,7 +79,42 @@ const ChatApp: React.FC = () => {
 
     return () => unsubscribe(); // Cleanup the listener on unmount
   }, [router]);
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log("User is authenticated:", user.uid);
 
+        // Fetch messages only after the user is authenticated
+        const messagesRef = collection(db, "users", user.uid, "chats");
+        const q = query(messagesRef, orderBy("index", "asc")); // Order messages by index
+
+        // Listen for real-time updates
+        const unsubscribeMessages = onSnapshot(
+          q,
+          (snapshot) => {
+            const messageData: Message[] = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            })) as Message[];
+            setMessages(messageData); // Update the state with the fetched messages
+          },
+          (error) => {
+            console.error("Error fetching messages:", error);
+            toast.error("Error fetching messages");
+          }
+        );
+
+        // Cleanup the messages listener when the component unmounts
+        return () => unsubscribeMessages();
+      } else {
+        console.log("User is not authenticated. Redirecting to sign-in page.");
+        router.push("/signin"); // Redirect to sign-in page if user is not authenticated
+      }
+    });
+
+    // Cleanup the auth listener when the component unmounts
+    return () => unsubscribe();
+  }, [router]);
   // Initialize OpenAI client
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || "";
@@ -220,28 +265,38 @@ const ChatApp: React.FC = () => {
   }, [isCallActive, openai, selectedVoice.id, audioMuted]);
 
   // Fetch messages from Firebase
-  useEffect(() => {
-    const messagesRef = collection(db, "messages");
-    const q = query(messagesRef, orderBy("index", "asc"));
+  // useEffect(() => {
+  //   const user = auth.currentUser;
+  //   if (!user) {
+  //     console.log("User not authenticated. Cannot fetch messages.");
+  //     return;
+  //   }
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot: QuerySnapshot<DocumentData>) => {
-        const messageData: Message[] = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Message[];
-        setMessages(messageData);
-      },
-      (error) => {
-        console.error("Error fetching messages:", error);
-        toast.error("Error fetching messages");
-      }
-    );
+  //   console.log("Fetching messages for user:", user.uid);
 
-    return () => unsubscribe();
-  }, []);
+  //   // Reference to the user's `chats` subcollection
+  //   const messagesRef = collection(db, "users", user.uid, "chats");
+  //   const q = query(messagesRef, orderBy("index", "asc")); // Order messages by index
 
+  //   // Listen for real-time updates
+  //   const unsubscribe = onSnapshot(
+  //     q,
+  //     (snapshot) => {
+  //       const messageData: Message[] = snapshot.docs.map((doc) => ({
+  //         id: doc.id,
+  //         ...doc.data(),
+  //       })) as Message[];
+  //       console.log("Fetched messages:", messageData);
+  //       setMessages(messageData); // Update the state with the fetched messages
+  //     },
+  //     (error) => {
+  //       console.error("Error fetching messages:", error);
+  //       toast.error("Error fetching messages");
+  //     }
+  //   );
+
+  //   return () => unsubscribe(); // Cleanup the listener on unmount
+  // }, []);
   // Auto-scroll to bottom when messages update
   useEffect(() => {
     scrollToBottom();
@@ -266,39 +321,52 @@ const ChatApp: React.FC = () => {
 
   // Function to send message to OpenAI and store in Firebase
   const handleSendMessage = async (text?: string) => {
+    const user = auth.currentUser;
+    if (!user) {
+      toast.error("User not authenticated");
+      return;
+    }
+
     const messageText = text || message;
     if (messageText.trim() === "") {
       toast.error("Message cannot be empty");
       return;
     }
 
-    const userMessage: Message = {
-      text: messageText,
-      createdAt: new Date(),
-      sender: "user",
-      index: messages.length,
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-
     try {
       setLoading(true);
 
-      // Add user message to Firestore
-      await addDoc(collection(db, "messages"), {
+      // Fetch the current messages to calculate the next index
+      const messagesRef = collection(db, "users", user.uid, "chats");
+      const q = query(messagesRef, orderBy("index", "asc"));
+      const snapshot = await getDocs(q);
+      const nextIndex = snapshot.size; // Index starts from 0
+
+      // Create the new message object for the user
+      const userMessage: Message = {
+        text: messageText,
+        createdAt: new Date(),
+        sender: "user",
+        index: nextIndex,
+      };
+
+      // Add the user's message to Firestore
+      await addDoc(messagesRef, {
         ...userMessage,
         createdAt: serverTimestamp(),
       });
 
-      setMessage("");
+      console.log("User message stored in Firestore:", messageText);
+      setMessage(""); // Clear the input field
 
+      // Ensure OpenAI client is ready
       if (!openai) {
         toast.error("OpenAI client is not initialized yet.");
-        setLoading(false);
         return;
       }
 
       // Fetch AI response
+      console.log("Sending message to OpenAI:", messageText);
       const completion = await openai.chat.completions.create({
         model: "gpt-4-turbo",
         messages: [
@@ -318,20 +386,26 @@ const ChatApp: React.FC = () => {
       }
 
       const cleanedResponse = aiResponse.replace(/[*/]/g, "");
+      console.log("AI Response:", cleanedResponse);
 
+      // Create the new message object for the AI
       const botMessage: Message = {
         text: cleanedResponse,
         createdAt: new Date(),
         sender: "boyfriend",
-        index: messages.length + 1,
+        index: nextIndex + 1, // Increment the index
       };
 
-      // Add AI response to Firestore and update UI
-      await addDoc(collection(db, "messages"), {
+      // Add the AI's response to Firestore
+      await addDoc(messagesRef, {
         ...botMessage,
         createdAt: serverTimestamp(),
       });
-      setMessages((prev) => [...prev, botMessage]);
+
+      console.log("AI message stored in Firestore:", cleanedResponse);
+
+      // Update the UI with the AI's response
+      setMessages((prev) => [...prev, userMessage, botMessage]);
 
       // Convert AI response to speech using ElevenLabs API
       if (!audioMuted) {
@@ -360,6 +434,7 @@ const ChatApp: React.FC = () => {
         const audioBlob = await response.blob();
         const audioUrl = URL.createObjectURL(audioBlob);
         setCurrentAudioUrl(audioUrl);
+        setShowAudioPlayer(true); // Show the audio player
         const audio = new Audio(audioUrl);
         audioRef.current = audio;
         setAudioPlaying(true);
@@ -367,6 +442,7 @@ const ChatApp: React.FC = () => {
         audio.play();
         audio.onended = () => {
           setAudioPlaying(false);
+          setShowAudioPlayer(false); // Hide the audio player when done
         };
       }
     } catch (error) {
@@ -640,12 +716,13 @@ const ChatApp: React.FC = () => {
           />
         )}
 
-        {audioPlaying && currentAudioUrl && (
+        {showAudioPlayer && currentAudioUrl && (
           <AudioPlayer
             audioUrl={currentAudioUrl}
             isPlaying={audioPlaying}
             isMuted={audioMuted}
             toggleMute={toggleMute}
+            onCancel={handleCancelAudio}
           />
         )}
       </div>

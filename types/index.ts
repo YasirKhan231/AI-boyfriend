@@ -1,11 +1,11 @@
 // Define types for messages
-export interface Message {
-  id?: string
-  text: string
-  createdAt?: any // Firestore timestamp
-  sender: "user" | "boyfriend"
-  index: number // Index to track the order of messages
-}
+ export type Message = {
+  id?: string; // Optional, as Firestore will generate this
+  text: string;
+  createdAt: Date;
+  sender: "user" | "boyfriend";
+  index?: number; // This is the missing property
+};
 
 export interface Voice {
   id: string

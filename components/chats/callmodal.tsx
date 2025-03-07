@@ -1,18 +1,25 @@
-"use client";
+"use client"
 
-import type React from "react";
-import { useEffect, useRef } from "react";
-import { PhoneOff, Volume2, VolumeX } from "lucide-react";
+import type React from "react"
+import { useEffect, useRef } from "react"
+import { PhoneOff, Volume2, VolumeX } from "lucide-react"
 
 interface CallModalProps {
-  isCallActive: boolean;
-  callHistory: string[];
-  voiceWaveform: number[];
-  isListening: boolean;
-  transcript: string;
-  endCall: () => void;
-  audioMuted: boolean;
-  toggleMute: () => void;
+  isCallActive: boolean
+  callHistory: string[]
+  voiceWaveform: number[]
+  isListening: boolean
+  transcript: string
+  endCall: () => void
+  audioMuted: boolean
+  toggleMute: () => void
+}
+
+// Frequency bands interface for type safety
+interface FrequencyBands {
+  low: number
+  mid: number
+  high: number
 }
 
 const CallModal: React.FC<CallModalProps> = ({
@@ -26,197 +33,288 @@ const CallModal: React.FC<CallModalProps> = ({
   toggleMute,
 }) => {
   // Calculate average waveform height for wave intensity
-  const averageWaveformHeight =
-    voiceWaveform.reduce((a, b) => a + b, 0) / voiceWaveform.length || 0;
+  const averageWaveformHeight = voiceWaveform.reduce((a, b) => a + b, 0) / voiceWaveform.length || 0
 
   // Calculate audio intensity for reactive animations
-  const audioIntensity = Math.min(averageWaveformHeight / 50, 1);
+  const audioIntensity = Math.min(averageWaveformHeight / 50, 1)
 
   // Canvas ref for drawing the waveform
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null)
 
   // Animation frame reference
-  const animationFrameRef = useRef<number>(0);
+  const animationFrameRef = useRef<number>(0)
 
   // Previous waveform data for smooth transitions
-  const prevWaveformRef = useRef<number[]>([]);
+  const prevWaveformRef = useRef<number[]>([])
 
   // Draw the audio waveform visualization
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current) return
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
 
     // Set canvas dimensions
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1
+    const rect = canvas.getBoundingClientRect()
 
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
+    canvas.width = rect.width * dpr
+    canvas.height = rect.height * dpr
 
-    ctx.scale(dpr, dpr);
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${rect.height}px`;
+    ctx.scale(dpr, dpr)
+    canvas.style.width = `${rect.width}px`
+    canvas.style.height = `${rect.height}px`
+
+    // Initialize previous waveform if empty
+    if (!prevWaveformRef.current.length) {
+      prevWaveformRef.current = Array(voiceWaveform.length).fill(0)
+    }
 
     // Smooth transition between waveform states
     const smoothWaveform = voiceWaveform.map((value, index) => {
-      const prev = prevWaveformRef.current[index] || 0;
-      return prev + (value - prev) * 0.3;
-    });
+      const prev = prevWaveformRef.current[index] || 0
+      return prev + (value - prev) * 0.3
+    })
 
-    prevWaveformRef.current = smoothWaveform;
+    prevWaveformRef.current = smoothWaveform
+
+    // Calculate frequency bands from waveform data
+    const frequencyBands: FrequencyBands = {
+      low: 0,
+      mid: 0,
+      high: 0,
+    }
+
+    // Divide waveform into frequency bands
+    const third = Math.floor(smoothWaveform.length / 3)
+
+    for (let i = 0; i < smoothWaveform.length; i++) {
+      if (i < third) {
+        frequencyBands.low += smoothWaveform[i]
+      } else if (i < third * 2) {
+        frequencyBands.mid += smoothWaveform[i]
+      } else {
+        frequencyBands.high += smoothWaveform[i]
+      }
+    }
+
+    frequencyBands.low /= third || 1
+    frequencyBands.mid /= third || 1
+    frequencyBands.high /= third || 1
 
     // Animation function
     const animate = () => {
-      if (!ctx) return;
+      if (!ctx) return
 
       // Clear canvas
-      ctx.clearRect(0, 0, rect.width, rect.height);
-
-      // Draw horizontal center line
-      ctx.beginPath();
-      ctx.strokeStyle = "rgba(255, 0, 128, 0.5)";
-      ctx.lineWidth = 1;
-      ctx.moveTo(0, rect.height / 2);
-      ctx.lineTo(rect.width, rect.height / 2);
-      ctx.stroke();
+      ctx.clearRect(0, 0, rect.width, rect.height)
 
       // Draw waveform
-      const centerY = rect.height / 2;
-      const segmentWidth = rect.width / (smoothWaveform.length - 1);
+      const centerY = rect.height / 2
+      const segmentWidth = rect.width / (smoothWaveform.length - 1)
 
-      // Create gradient for the waveform
-      const gradient = ctx.createLinearGradient(0, 0, rect.width, 0);
-      gradient.addColorStop(0, "rgba(255, 0, 128, 0.8)");
-      gradient.addColorStop(0.5, "rgba(255, 255, 0, 0.8)");
-      gradient.addColorStop(1, "rgba(255, 0, 128, 0.8)");
+      // Create gradient for the waveform based on the reference images
+      const gradient = ctx.createLinearGradient(0, 0, rect.width, 0)
+
+      // Colorful spectrum gradient similar to the first reference image
+      gradient.addColorStop(0, "rgba(255, 50, 0, 0.8)") // Red/orange
+      gradient.addColorStop(0.2, "rgba(255, 200, 0, 0.8)") // Yellow
+      gradient.addColorStop(0.4, "rgba(0, 255, 100, 0.8)") // Green
+      gradient.addColorStop(0.6, "rgba(0, 200, 255, 0.8)") // Cyan
+      gradient.addColorStop(0.8, "rgba(150, 0, 255, 0.8)") // Purple
+      gradient.addColorStop(1, "rgba(255, 0, 150, 0.8)") // Pink
+
+      // Calculate time-based phase for wave movement
+      const time = Date.now() / 1000
+      const phase = time % (Math.PI * 2)
 
       // Draw the main waveform path
-      ctx.beginPath();
-      ctx.moveTo(0, centerY);
+      ctx.beginPath()
+      ctx.moveTo(0, centerY)
 
       for (let i = 0; i < smoothWaveform.length; i++) {
-        const x = i * segmentWidth;
-        const amplitude = isListening
-          ? smoothWaveform[i] * (rect.height / 2) * 0.8 * (1 + audioIntensity)
-          : smoothWaveform[i] * (rect.height / 2) * 0.4;
-        const y = centerY - amplitude;
+        const x = i * segmentWidth
+
+        // Calculate which frequency band this point belongs to
+        let frequencyFactor = 1.0
+        if (i < smoothWaveform.length / 3) {
+          frequencyFactor = 0.8 + frequencyBands.low * 0.5
+        } else if (i < (smoothWaveform.length / 3) * 2) {
+          frequencyFactor = 0.8 + frequencyBands.mid * 0.5
+        } else {
+          frequencyFactor = 0.8 + frequencyBands.high * 0.5
+        }
+
+        // Add wave motion based on time
+        const waveMotion = Math.sin(phase + i * 0.2) * 0.1
+
+        // Calculate amplitude with intensity scaling
+        // This ensures wave height increases with sound intensity
+        const baseAmplitude = smoothWaveform[i] * (rect.height / 2)
+        const intensityFactor = isListening ? 1 + audioIntensity * 2 : 0.4
+        const amplitude = baseAmplitude * frequencyFactor * intensityFactor * (1 + waveMotion)
+
+        const y = centerY - amplitude
 
         if (i === 0) {
-          ctx.moveTo(x, y);
+          ctx.moveTo(x, y)
         } else {
           // Use quadratic curves for smoother waveform
-          const prevX = (i - 1) * segmentWidth;
-          const cpX = (prevX + x) / 2;
-          ctx.quadraticCurveTo(
-            cpX,
-            centerY -
-              smoothWaveform[i - 1] *
-                (rect.height / 2) *
-                0.8 *
-                (1 + audioIntensity),
-            x,
-            y
-          );
+          const prevX = (i - 1) * segmentWidth
+          const cpX = (prevX + x) / 2
+
+          // Calculate previous point's amplitude for the control point
+          const prevIndex = i - 1
+          let prevFrequencyFactor = 1.0
+
+          if (prevIndex < smoothWaveform.length / 3) {
+            prevFrequencyFactor = 0.8 + frequencyBands.low * 0.5
+          } else if (prevIndex < (smoothWaveform.length / 3) * 2) {
+            prevFrequencyFactor = 0.8 + frequencyBands.mid * 0.5
+          } else {
+            prevFrequencyFactor = 0.8 + frequencyBands.high * 0.5
+          }
+
+          const prevWaveMotion = Math.sin(phase + prevIndex * 0.2) * 0.1
+          const prevAmplitude =
+            smoothWaveform[prevIndex] * (rect.height / 2) * prevFrequencyFactor * intensityFactor * (1 + prevWaveMotion)
+
+          ctx.quadraticCurveTo(cpX, centerY - prevAmplitude, x, y)
         }
       }
 
       // Complete the path back to center line
       for (let i = smoothWaveform.length - 1; i >= 0; i--) {
-        const x = i * segmentWidth;
-        const amplitude = isListening
-          ? smoothWaveform[i] * (rect.height / 2) * 0.8 * (1 + audioIntensity)
-          : smoothWaveform[i] * (rect.height / 2) * 0.4;
-        const y = centerY + amplitude;
+        const x = i * segmentWidth
+
+        // Calculate which frequency band this point belongs to
+        let frequencyFactor = 1.0
+        if (i < smoothWaveform.length / 3) {
+          frequencyFactor = 0.8 + frequencyBands.low * 0.5
+        } else if (i < (smoothWaveform.length / 3) * 2) {
+          frequencyFactor = 0.8 + frequencyBands.mid * 0.5
+        } else {
+          frequencyFactor = 0.8 + frequencyBands.high * 0.5
+        }
+
+        // Add wave motion based on time
+        const waveMotion = Math.sin(phase + i * 0.2) * 0.1
+
+        // Calculate amplitude with intensity scaling
+        const baseAmplitude = smoothWaveform[i] * (rect.height / 2)
+        const intensityFactor = isListening ? 1 + audioIntensity * 2 : 0.4
+        const amplitude = baseAmplitude * frequencyFactor * intensityFactor * (1 + waveMotion)
+
+        const y = centerY + amplitude
 
         if (i === smoothWaveform.length - 1) {
-          ctx.lineTo(x, y);
+          ctx.lineTo(x, y)
         } else {
           // Use quadratic curves for smoother waveform
-          const prevX = (i + 1) * segmentWidth;
-          const cpX = (prevX + x) / 2;
-          ctx.quadraticCurveTo(
-            cpX,
-            centerY +
-              smoothWaveform[i + 1] *
-                (rect.height / 2) *
-                0.8 *
-                (1 + audioIntensity),
-            x,
-            y
-          );
+          const prevX = (i + 1) * segmentWidth
+          const cpX = (prevX + x) / 2
+
+          // Calculate previous point's amplitude for the control point
+          const prevIndex = i + 1
+          let prevFrequencyFactor = 1.0
+
+          if (prevIndex < smoothWaveform.length / 3) {
+            prevFrequencyFactor = 0.8 + frequencyBands.low * 0.5
+          } else if (prevIndex < (smoothWaveform.length / 3) * 2) {
+            prevFrequencyFactor = 0.8 + frequencyBands.mid * 0.5
+          } else {
+            prevFrequencyFactor = 0.8 + frequencyBands.high * 0.5
+          }
+
+          const prevWaveMotion = Math.sin(phase + prevIndex * 0.2) * 0.1
+          const prevAmplitude =
+            smoothWaveform[prevIndex] * (rect.height / 2) * prevFrequencyFactor * intensityFactor * (1 + prevWaveMotion)
+
+          ctx.quadraticCurveTo(cpX, centerY + prevAmplitude, x, y)
         }
       }
 
-      ctx.closePath();
-      ctx.fillStyle = gradient;
-      ctx.fill();
+      ctx.closePath()
+      ctx.fillStyle = gradient
+      ctx.fill()
 
-      // Add glow effect
-      ctx.shadowColor = "rgba(255, 255, 0, 0.8)";
-      ctx.shadowBlur = 15 * (1 + audioIntensity);
-      ctx.strokeStyle = "rgba(255, 255, 0, 0.8)";
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      // Add glow effect that intensifies with audio level
+      const glowIntensity = 15 * (1 + audioIntensity * 2)
+      ctx.shadowColor = "rgba(255, 255, 255, 0.8)"
+      ctx.shadowBlur = glowIntensity
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"
+      ctx.lineWidth = 2
+      ctx.stroke()
 
-      // Draw flame-like effect on peaks
-      for (let i = 1; i < smoothWaveform.length - 1; i++) {
-        // Only draw flames on significant peaks
-        if (
-          smoothWaveform[i] > 0.5 &&
-          smoothWaveform[i] > smoothWaveform[i - 1] &&
-          smoothWaveform[i] > smoothWaveform[i + 1]
-        ) {
-          const x = i * segmentWidth;
-          const peakHeight =
-            smoothWaveform[i] * (rect.height / 2) * 0.8 * (1 + audioIntensity);
-          const flameHeight = peakHeight * 1.5 * (isListening ? 1 : 0.5);
+      // Draw vertical bars like in the second reference image
+      const barWidth = rect.width / 100
+      const barSpacing = rect.width / 50
 
-          // Create flame gradient
-          const flameGradient = ctx.createLinearGradient(
-            x,
-            centerY - peakHeight,
-            x,
-            centerY - flameHeight
-          );
-          flameGradient.addColorStop(0, "rgba(255, 255, 0, 0.9)");
-          flameGradient.addColorStop(0.5, "rgba(255, 165, 0, 0.7)");
-          flameGradient.addColorStop(1, "rgba(255, 0, 0, 0)");
+      for (let i = 0; i < rect.width; i += barSpacing) {
+        // Calculate bar height based on position and waveform data
+        const waveformIndex = Math.floor((i / rect.width) * smoothWaveform.length)
+        const barValue = smoothWaveform[waveformIndex] || 0
 
-          // Draw flame
-          ctx.beginPath();
-          ctx.moveTo(x - 5, centerY - peakHeight);
-          ctx.quadraticCurveTo(
-            x,
-            centerY - flameHeight,
-            x + 5,
-            centerY - peakHeight
-          );
-          ctx.fillStyle = flameGradient;
-          ctx.fill();
+        // Scale height based on audio intensity
+        const barHeight = barValue * rect.height * 0.8 * (1 + audioIntensity)
 
-          // Add glow to flame
-          ctx.shadowColor = "rgba(255, 255, 0, 0.8)";
-          ctx.shadowBlur = 20 * (1 + audioIntensity);
+        // Create gradient for the bar
+        const barGradient = ctx.createLinearGradient(0, centerY - barHeight / 2, 0, centerY + barHeight / 2)
+
+        // Position-based color (like the spectrum in the first image)
+        const position = i / rect.width
+        let color1, color2, color3
+
+        if (position < 0.2) {
+          color1 = "rgba(255, 0, 0, 0.7)"
+          color2 = "rgba(255, 100, 0, 0.9)"
+          color3 = "rgba(255, 50, 0, 0.7)"
+        } else if (position < 0.4) {
+          color1 = "rgba(255, 200, 0, 0.7)"
+          color2 = "rgba(255, 255, 0, 0.9)"
+          color3 = "rgba(200, 255, 0, 0.7)"
+        } else if (position < 0.6) {
+          color1 = "rgba(0, 255, 0, 0.7)"
+          color2 = "rgba(0, 255, 100, 0.9)"
+          color3 = "rgba(0, 200, 100, 0.7)"
+        } else if (position < 0.8) {
+          color1 = "rgba(0, 200, 255, 0.7)"
+          color2 = "rgba(0, 100, 255, 0.9)"
+          color3 = "rgba(50, 0, 255, 0.7)"
+        } else {
+          color1 = "rgba(150, 0, 255, 0.7)"
+          color2 = "rgba(200, 0, 200, 0.9)"
+          color3 = "rgba(255, 0, 150, 0.7)"
         }
+
+        barGradient.addColorStop(0, color1)
+        barGradient.addColorStop(0.5, color2)
+        barGradient.addColorStop(1, color3)
+
+        // Draw the bar
+        ctx.fillStyle = barGradient
+        ctx.fillRect(i, centerY - barHeight / 2, barWidth, barHeight)
+
+        // Add glow to bars
+        ctx.shadowColor = color2
+        ctx.shadowBlur = 10 * (1 + audioIntensity)
       }
 
       // Continue animation
-      animationFrameRef.current = requestAnimationFrame(animate);
-    };
+      animationFrameRef.current = requestAnimationFrame(animate)
+    }
 
     // Start animation
-    animate();
+    animate()
 
     // Cleanup
     return () => {
       if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+        cancelAnimationFrame(animationFrameRef.current)
       }
-    };
-  }, [voiceWaveform, isListening, audioIntensity]);
+    }
+  }, [voiceWaveform, isListening, audioIntensity])
 
   return (
     <div className="fixed inset-0 bg-black/95 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -225,8 +323,7 @@ const CallModal: React.FC<CallModalProps> = ({
           <div
             className="w-full h-48 md:h-56 flex items-center justify-center my-4 relative overflow-hidden rounded-lg"
             style={{
-              background:
-                "linear-gradient(180deg, rgba(0,0,0,1) 0%, rgba(20,20,30,1) 100%)",
+              background: "linear-gradient(180deg, rgba(0,0,0,1) 0%, rgba(20,20,30,1) 100%)",
             }}
           >
             {/* Audio Waveform Visualization */}
@@ -254,9 +351,7 @@ const CallModal: React.FC<CallModalProps> = ({
               <div
                 key={index}
                 className={`py-2 text-sm ${
-                  message.startsWith("You:")
-                    ? "text-right text-cyan-400"
-                    : "text-left text-gray-300"
+                  message.startsWith("You:") ? "text-right text-cyan-400" : "text-left text-gray-300"
                 }`}
               >
                 {message}
@@ -266,9 +361,7 @@ const CallModal: React.FC<CallModalProps> = ({
 
           <div className="text-center my-3 md:my-4">
             {isCallActive ? (
-              <p className="text-xs md:text-sm text-gray-400">
-                {transcript ? transcript : "Listening...speak now"}
-              </p>
+              <p className="text-xs md:text-sm text-gray-400">{transcript ? transcript : "Listening...speak now"}</p>
             ) : (
               <p className="text-xs md:text-sm text-gray-400">Connecting...</p>
             )}
@@ -305,7 +398,8 @@ const CallModal: React.FC<CallModalProps> = ({
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default CallModal;
+export default CallModal
+
