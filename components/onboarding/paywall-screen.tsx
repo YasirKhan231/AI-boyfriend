@@ -7,6 +7,11 @@ interface PaywallScreenProps {
 }
 
 export default function PaywallScreen({ onNext, onBack }: PaywallScreenProps) {
+  const handlePaymentComplete = () => {
+    // Call onNext to proceed to the next step
+    onNext();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -96,7 +101,7 @@ export default function PaywallScreen({ onNext, onBack }: PaywallScreenProps) {
       </p>
 
       <Button
-        onClick={onNext}
+        onClick={handlePaymentComplete}
         className="w-full rounded-full hover:cursor-pointer"
       >
         Continue

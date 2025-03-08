@@ -327,54 +327,20 @@ export default function FantasyQuestions({
 
   // Handle next button click
   const handleNext = async () => {
-    console.log("Next button clicked");
-
-    // If we have audio recorded, convert it to text first
     if (userData.answers[questionIndex] === "Audio response recorded") {
-      console.log("Audio response recorded. Starting conversion...");
-
-      // Try Elevenlabs first, then fall back to AssemblyAI if needed
       const text = await convertAudioToText();
-
-      // If Elevenlabs fails, try AssemblyAI
-
       if (text) {
-        console.log("Conversion successful. Converted text:", text);
-
-        // Update the user data with the converted text
         const newAnswers = [...userData.answers];
         newAnswers[questionIndex] = text;
         updateUserData({ answers: newAnswers });
+      }
+    }
 
-        // Move to next question or complete
-        if (questionIndex < questions.length - 1) {
-          console.log("Moving to the next question...");
-          setQuestionIndex(questionIndex + 1);
-          // Reset recording state for the next question
-          retryRecording();
-        } else {
-          console.log("All questions completed. Moving to the next step...");
-          onNext();
-        }
-      } else {
-        console.log("Conversion failed. No text was generated.");
-        // If both conversion methods fail, show an error
-        if (!conversionError) {
-          setConversionError(
-            "Failed to convert speech to text. Please try again."
-          );
-        }
-      }
+    if (questionIndex < questions.length - 1) {
+      setQuestionIndex(questionIndex + 1);
+      retryRecording();
     } else {
-      console.log("No audio recorded. Moving to the next question...");
-      // If no conversion needed, just move to next question or complete
-      if (questionIndex < questions.length - 1) {
-        setQuestionIndex(questionIndex + 1);
-        // Reset recording state for the next question
-        retryRecording();
-      } else {
-        onNext();
-      }
+      onNext(); // Move to the next step (e.g., PaywallScreen)
     }
   };
 

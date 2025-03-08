@@ -46,6 +46,7 @@ const ChatApp: React.FC = () => {
   const [showAudioPlayer, setShowAudioPlayer] = useState<boolean>(false);
   const [isAuthChecked, setIsAuthChecked] = useState<boolean>(false);
   const [callStartTime, setCallStartTime] = useState<Date | null>(null);
+  const [isAISpeaking, setIsAISpeaking] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState({
     id: "21m00Tcm4TlvDq8ikWAM", // Default voice ID
     name: "Josh", // Default voice name
@@ -479,19 +480,23 @@ const ChatApp: React.FC = () => {
         setIsListening(true);
       };
 
-      recognition.onresult = async (event: { results: any[] }) => {
+      // Inside the recognition.onresult handler
+      recognition.onresult = async (event: any) => {
         const currentTranscript =
           event.results[event.results.length - 1][0].transcript;
         setTranscript(currentTranscript);
 
-        if (event.results[event.results.length - 1].isFinal) {
+        if (event.results[event.results.length - 1].isFinal && isCallActive) {
+          // Add user's speech to call history
           setCallHistory((prev) => [...prev, `You: ${currentTranscript}`]);
 
+          // Ensure OpenAI client is ready
           if (!openai) {
             toast.error("OpenAI client is not initialized yet.");
             return;
           }
 
+          // Get AI response
           try {
             const completion = await openai.chat.completions.create({
               model: "gpt-4-turbo",
@@ -511,69 +516,58 @@ const ChatApp: React.FC = () => {
               return;
             }
 
+            // Clean response and update call history
             const cleanedResponse = aiResponse.replace(/[*/]/g, "");
             setCallHistory((prev) => [
               ...prev,
               `Boyfriend: ${cleanedResponse}`,
             ]);
 
+            // Text-to-speech via ElevenLabs
             if (!audioMuted) {
-              try {
-                const response = await fetch(
-                  `https://api.elevenlabs.io/v1/text-to-speech/${selectedVoice.id}`,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      "xi-api-key": ELEVENLABS_API_KEY,
+              const response = await fetch(
+                `https://api.elevenlabs.io/v1/text-to-speech/${selectedVoice.id}`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "xi-api-key": ELEVENLABS_API_KEY,
+                  },
+                  body: JSON.stringify({
+                    text: cleanedResponse,
+                    voice_settings: {
+                      stability: 0.5,
+                      similarity_boost: 0.5,
                     },
-                    body: JSON.stringify({
-                      text: cleanedResponse,
-                      voice_settings: {
-                        stability: 0.5,
-                        similarity_boost: 0.5,
-                      },
-                    }),
-                  }
-                );
-
-                if (!response.ok) {
-                  throw new Error(`ElevenLabs API error: ${response.status}`);
+                  }),
                 }
+              );
 
-                const audioBlob = await response.blob();
-                const audioUrl = URL.createObjectURL(audioBlob);
-                setCurrentAudioUrl(audioUrl);
-                const audio = new Audio(audioUrl);
-                audioRef.current = audio;
-                setAudioPlaying(true);
-
-                audio.play();
-                audio.onended = () => {
-                  setAudioPlaying(false);
-                  setTranscript("");
-                };
-              } catch (ttsError) {
-                console.error("TTS Error:", ttsError);
-                toast.error(
-                  "Voice synthesis failed, but conversation continues."
-                );
-                setTranscript("");
+              if (!response.ok) {
+                throw new Error("Failed to convert text to speech");
               }
-            } else {
-              setTranscript("");
+
+              const audioBlob = await response.blob();
+              const audioUrl = URL.createObjectURL(audioBlob);
+              setCurrentAudioUrl(audioUrl);
+              const audio = new Audio(audioUrl);
+              audioRef.current = audio;
+
+              audio.play();
+              setAudioPlaying(true);
+              audio.onended = () => {
+                setAudioPlaying(false);
+                if (isCallActive) {
+                  setTranscript("");
+                }
+              };
             }
-          } catch (openaiError) {
-            console.error("OpenAI Error:", openaiError);
-            toast.error("Failed to get AI response. Please try again.");
-            setCallHistory((prev) => [
-              ...prev,
-              `Boyfriend: I'm sorry, I'm having trouble understanding right now. Could you say that again?`,
-            ]);
+          } catch (error) {
+            console.error("Error in call processing:", error);
+            toast.error("Error processing your message. Please try again.");
           }
         }
       };
-
       recognition.onerror = (event: { error: any }) => {
         toast.error(`Speech recognition error: ${event.error}`);
         setIsListening(false);
@@ -649,24 +643,24 @@ const ChatApp: React.FC = () => {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
-  
+
     setIsCallActive(false);
     setIsListening(false);
     setShowCallModal(false);
     setTranscript("");
-  
+
     const user = auth.currentUser;
     if (!user) {
       toast.error("User not authenticated");
       return;
     }
-  
+
     // Pre-check for callStartTime
     if (!callStartTime) {
       console.log("Start time is not set. Cannot calculate duration.");
       return;
     }
-  
+
     // Prepare call log data
     const callLogData = {
       callHistory: callHistory, // Array of messages
@@ -674,15 +668,15 @@ const ChatApp: React.FC = () => {
       endTime: serverTimestamp(), // Timestamp when the call ended
       duration: new Date().getTime() - callStartTime.getTime(), // Duration in milliseconds
     };
-  
+
     try {
       // Save call log to Firestore
       const callLogsRef = collection(db, "users", user.uid, "callLogs");
       console.log("Firestore Path:", `users/${user.uid}/callLogs`);
       console.log("Call Log Data:", callLogData);
-  
+
       await addDoc(callLogsRef, callLogData);
-  
+
       // Optionally, save a summary to the chat history
       const callSummary: Message = {
         text: `📞 Call Summary:\n${callHistory.join("\n")}`,
@@ -690,16 +684,16 @@ const ChatApp: React.FC = () => {
         sender: "boyfriend",
         index: messages.length + 1,
       };
-  
+
       setMessages((prev) => [...prev, callSummary]);
-  
+
       // Save the summary to Firestore
       const messagesRef = collection(db, "users", user.uid, "chats");
       await addDoc(messagesRef, {
         ...callSummary,
         createdAt: serverTimestamp(),
       });
-  
+
       toast.success("Call log saved successfully.");
     } catch (error) {
       console.error("Error saving call log:", error);

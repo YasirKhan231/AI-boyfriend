@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { PhoneOff, Volume2, VolumeX } from "lucide-react"
 
 interface CallModalProps {
@@ -32,6 +32,8 @@ const CallModal: React.FC<CallModalProps> = ({
   audioMuted,
   toggleMute,
 }) => {
+  const [isAISpeaking, setIsAISpeaking] = useState(false)
+
   // Calculate average waveform height for wave intensity
   const averageWaveformHeight = voiceWaveform.reduce((a, b) => a + b, 0) / voiceWaveform.length || 0
 
@@ -46,6 +48,21 @@ const CallModal: React.FC<CallModalProps> = ({
 
   // Previous waveform data for smooth transitions
   const prevWaveformRef = useRef<number[]>([])
+
+  // Effect to handle AI speaking state
+  useEffect(() => {
+    if (isAISpeaking) {
+      // Mute the microphone when AI is speaking
+      if (!audioMuted) {
+        toggleMute()
+      }
+    } else {
+      // Unmute the microphone when AI is not speaking
+      if (audioMuted) {
+        toggleMute()
+      }
+    }
+  }, [isAISpeaking, audioMuted, toggleMute])
 
   // Draw the audio waveform visualization
   useEffect(() => {
@@ -402,4 +419,3 @@ const CallModal: React.FC<CallModalProps> = ({
 }
 
 export default CallModal
-

@@ -39,47 +39,33 @@ export default function Home() {
     // Log the data in the browser console
     console.log("Onboarding Data:", userData);
 
-    // Send data to the local API endpoint
-    try {
-      const response = await fetch(
-        "http://localhost:8000/onboardingdata/submit",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(userData),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to submit onboarding data");
-      }
-
-      const result = await response.json();
-      console.log("API Response:", result);
-
-      // Store data in Firestore
-      const user = auth.currentUser;
-      if (user) {
+    // Store data in Firestore
+    const user = auth.currentUser;
+    if (user) {
+      try {
         await setDoc(doc(db, "users", user.uid), {
-          onboardingData: userData,
-          createdAt: new Date(),
+          ...userData, // Store all onboarding data
+          createdAt: new Date(), // Add a timestamp
         });
-        console.log("Data stored in Firestore");
+        console.log("Onboarding data stored in Firestore");
+      } catch (error) {
+        console.error("Error storing onboarding data in Firestore:", error);
       }
-    } catch (error) {
-      console.error("Error submitting onboarding data:", error);
     }
 
     // Move to the next step (e.g., SuccessScreen)
-    handleNext();
+    setCurrentStep(currentStep + 1);
   };
 
   const handleNext = () => {
     setIsLoading(true);
     setTimeout(() => {
-      setCurrentStep(currentStep + 1);
+      if (currentStep === 4) {
+        // If the user is on the PaywallScreen (step 4), call handleComplete
+        handleComplete();
+      } else {
+        setCurrentStep(currentStep + 1);
+      }
       setIsLoading(false);
     }, 1000);
   };
